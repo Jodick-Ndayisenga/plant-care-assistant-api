@@ -1,0 +1,58 @@
+### Login and obtain access + refresh tokens
+@refresh_token = eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJ0b2tlbl90eXBlIjoicmVmcmVzaCIsImV4cCI6MTc1NTE4MjY4MCwiaWF0IjoxNzUyNTkwNjgwLCJqdGkiOiIyOWY4ZmU3NTFkMGM0OTk1ODVmMzViYzliYjU0NDRhNSIsInVzZXJfaWQiOjJ9.V7x80yZ6fYL4XIsncnuR0HPcrSw7OevLhQ6BsGp6os9nmfeTC2I_nlslYmriZVDUFy9bobmqlL6JyGSI2Y4PA4YahhgHA1CdRKD1XdXSFUftHJvOUpVna3b8f9PN1YrpYSTGe0hzNIVbUBkJIP0rD8-42h1GLl0BvicFKhmb55hvBIa2GSZMpd1ypmYrfD_t3H2ZO2U-0JbxDYAtZej_1C8B2RycUVFIyaWq_dkJeXi-FFMFqzxIoGwLV_LewYhkGhWfzj6myvM1ZazxhRtRM88vQlw4Eyne5eFD7zQNtA0SyM7-0Y5c-Dux1cs_kVjr1vA0PTRO3qsolmAENJC2BQ
+@access_token =eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJ0b2tlbl90eXBlIjoiYWNjZXNzIiwiZXhwIjoxNzUyNjE0MzIxLCJpYXQiOjE3NTI2MTM0MjEsImp0aSI6IjQ3MjliMjk2YTcyOTRiYjg5ZDI1NTUyZmQyNmZhMjUwIiwidXNlcl9pZCI6M30.k26TZJ_rnTj2-49waV9JirvV5yn9aDNJZhahBxVQVlOI_TGju7DGV8pmfNEYAHWw4H9MFcQUi0h9sJ1I1TkGVZY_qBPI6MvsiDswQ6VJUFKMt1QTMEoNxi_kp2VQR8o_SnCZTJrrBTppp3R5n0GXRxZDShNtOJMrHero7Z2RjN3stLpQMfiN_gIx9X1Sfs-Lf5HW97aKWdFIALvcI7jZ2m6lWSDz4w1E0ez13DgvYmBSEhQSiuzax8bOcXgh3GCLxl2B4zJt_alXvTzEGSw1WlOR1gKi31cT-cH2JLkto3uInUb2V4OEkPVG_wolHVpAnTTzWX8LH6iRWuOZfX43ew
+
+{
+  "username": "jndayisenga",
+  "password": "Jodick@12"
+}
+
+###
+
+### Refresh the access token using the refresh token
+# Replace {{refresh_token}} with the actual refresh token from login response
+POST http://localhost:8000/api/token/refresh/
+Content-Type: application/json
+
+{
+  "refresh": "{{refresh_token}}"
+}
+
+###
+
+### Access a protected endpoint with your access token
+# Replace {{access_token}} with the one from login or refresh
+GET http://localhost:8000/api/users/
+Authorization: Bearer {{access_token}}
+Content-Type: application/json
+
+###
+
+### Logout (optional - if using blacklist)
+# If you’ve set up token blacklisting
+POST http://localhost:8000/api/token/blacklist/
+Content-Type: application/json
+
+{
+  "refresh": "{{refresh_token}}"
+}
+
+
+### Delete the user
+# Replace {{user_id}} with the actual user ID from the create user response
+DELETE http://localhost:8000/api/users/2/
+Authorization: Bearer {{access_token}}
+Content-Type: application/json
+
+###  Create user
+# create user
+POST http://localhost:8000/api/users/
+Content-Type: application/json
+{
+  "username": "jndayisenga",
+  "email": "rajajodick@gmail.com",
+  "password": "Jodick@12",
+  "province":"Bujumbura",
+  "phone_number":"0792455349",
+  "full_name":"Jodick Ndayisenga"
+}
