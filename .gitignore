@@ -51,6 +51,7 @@ ai_models/
 *.joblib
 *.pem
 keys/
+*.http
 # Celery
 celerybeat-schedule
 celerybeat.pid
