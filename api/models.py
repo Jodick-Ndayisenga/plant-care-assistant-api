@@ -125,3 +125,55 @@ class Recommendation(models.Model):
 
     class Meta:
         ordering = ['-created_at']
+
+
+class CropRecommendation(models.Model):
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='crop_recommendations')
+
+    nitrogen = models.FloatField()
+    phosphorus = models.FloatField()
+    potassium = models.FloatField()
+    temperature = models.FloatField()
+    humidity = models.FloatField()
+    ph = models.FloatField()
+    rainfall = models.FloatField()
+
+    # ML model output
+    predicted_label = models.IntegerField(null=True, blank=True)  # index like "0"
+    predicted_crop = models.CharField(max_length=50, null=True, blank=True)  # e.g. "maize"
+    confidence_score = models.FloatField(null=True, blank=True)
+
+    # Explanation or LLM response
+    explanation = models.TextField(null=True, blank=True)
+
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['-created_at']
+
+
+class FertilizerRecommendation(models.Model):
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='fertilizer_recommendations')
+    crop = models.ForeignKey(PlantType, on_delete=models.CASCADE, related_name='fertilizer_recommendations')
+    soil_type = models.ForeignKey(SoilType, on_delete=models.CASCADE, related_name='fertilizer_recommendations')
+
+    temperature = models.FloatField()
+    humidity = models.FloatField()
+    moisture = models.FloatField()
+    nitrogen = models.FloatField()
+    phosphorus = models.FloatField()
+    potassium = models.FloatField()
+
+    # ML model output
+    predicted_label = models.IntegerField(null=True, blank=True)
+    predicted_fertilizer = models.CharField(max_length=50, null=True, blank=True)
+    confidence_score = models.FloatField(null=True, blank=True)
+
+    explanation = models.TextField(null=True, blank=True)
+
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['-created_at']

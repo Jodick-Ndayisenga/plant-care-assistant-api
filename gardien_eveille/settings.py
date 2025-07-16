@@ -196,3 +196,8 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 # AI Model settings
 ML_MODELS_PATH = os.path.join(BASE_DIR,'api', 'ml_models')
 GEMINI_API_KEY = os.getenv('GEMINI_API_KEY')
+FERTILIZER_LABELS_PATH = os.path.join(ML_MODELS_PATH, 'fertilizer_labels.json')
+CROP_LABELS_PATH = os.path.join(ML_MODELS_PATH, 'crop_labels.json')
+CROP_MODEL_PATH = os.path.join(ML_MODELS_PATH, 'crop_model.joblib')
+FERTILIZER_MODEL_PATH = os.path.join(ML_MODELS_PATH, 'fertilizer_recom.pkl')
+DISEASE_MODEL_PATH = os.path.join(ML_MODELS_PATH, 'best_model.keras')

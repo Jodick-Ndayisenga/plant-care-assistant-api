@@ -3,6 +3,7 @@ from rest_framework.permissions import IsAuthenticated, AllowAny
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
+from rest_framework.parsers import MultiPartParser, FormParser
 from django.contrib.auth import get_user_model
 from drf_spectacular.utils import extend_schema
 from tensorflow.keras.models import load_model
@@ -13,17 +14,8 @@ import tensorflow as tf
 import joblib
 import os
 from django.conf import settings
+from .tasks import analyze_plant_image, generate_crop_recommendation, generate_fertilizer_recommendation
 
-# def load_and_preprocess_image(img_path, target_size=(300, 300)):
-#     # Load the image
-#     img = load_img(img_path, target_size=target_size)
-#     # Convert the image to array
-#     img_array = img_to_array(img)
-#     # Expand dimensions to match the shape of model input
-#     img_array = np.expand_dims(img_array, axis=0)
-#     # Preprocess the image using the same function used in training
-#     img_array = tf.keras.applications.efficientnet.preprocess_input(img_array)
-#     return img_array
 
 def preprocess_image(uploaded_image, target_size=(300, 300)):
     img = Image.open(uploaded_image).convert('RGB')  # Convert to RGB (drops alpha channel)
@@ -37,12 +29,12 @@ def preprocess_image(uploaded_image, target_size=(300, 300)):
 
 from .models import (
     PlantType, SoilType, Climate, Diagnostic,
-    Conversation, Message, Recommendation
+    Conversation, Message, Recommendation, CropRecommendation, FertilizerRecommendation
 )
 from .serializers import (
     UserSerializer, PlantTypeSerializer, SoilTypeSerializer,
     ClimateSerializer, DiagnosticSerializer, ConversationSerializer,
-    MessageSerializer, RecommendationSerializer, LoginSerializer, DetectDiseaseSerializer
+    MessageSerializer, CropRecommendationSerializer, FertilizerRecommendationSerializer, LoginSerializer, DetectDiseaseSerializer
 )
 
 
@@ -157,26 +149,54 @@ class DiagnosticViewSet(viewsets.ModelViewSet):
     permission_classes = [IsAuthenticated]
     filter_backends = [filters.OrderingFilter]
     ordering_fields = ['created_at', 'status']
+    parser_classes = [MultiPartParser, FormParser]  # to handle image upload
 
     def get_queryset(self):
         return Diagnostic.objects.filter(user=self.request.user)
 
     @extend_schema(
-        description='Analyze the plant image to detect disease (mocked)',
+        description='Upload a plant image for disease analysis; starts async processing.',
+        request=DiagnosticSerializer,
+        responses={201: DiagnosticSerializer}
+    )
+    def create(self, request, *args, **kwargs):
+        # Expecting an image file in request.data['image'] and possibly other fields
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        # Save Diagnostic with status = processing
+        diagnostic = serializer.save(user=request.user, status='processing')
+
+        # Trigger Celery async task with diagnostic id
+        analyze_plant_image.delay(diagnostic.id)
+
+        headers = self.get_success_headers(serializer.data)
+        return Response(serializer.data, status=status.HTTP_201_CREATED, headers=headers)
+
+    @extend_schema(
+        description='Get diagnostic details including current status and results.',
         responses={200: DiagnosticSerializer}
+    )
+    def retrieve(self, request, *args, **kwargs):
+        return super().retrieve(request, *args, **kwargs)
+
+    @extend_schema(
+        description='Optionally trigger re-analysis on an existing diagnostic (if needed).',
+        responses={202: {'description': 'Re-analysis started'}}
     )
     @action(detail=True, methods=['post'])
     def analyze(self, request, pk=None):
         diagnostic = self.get_object()
 
-        # Placeholder for ML model logic
+        if diagnostic.status == 'processing':
+            return Response({'detail': 'Analysis is already in progress.'}, status=status.HTTP_409_CONFLICT)
+
         diagnostic.status = 'processing'
+        diagnostic.result = None  # clear previous result if any
         diagnostic.save()
 
-        # In real case: queue to Celery, analyze image, etc.
-        return Response({'status': 'Processing started'}, status=status.HTTP_202_ACCEPTED)
+        analyze_plant_image.delay(diagnostic.id)
 
-
+        return Response({'status': 'Re-analysis started'}, status=status.HTTP_202_ACCEPTED)
 # --- Conversation ViewSet ---
 class ConversationViewSet(viewsets.ModelViewSet):
     serializer_class = ConversationSerializer
@@ -217,26 +237,53 @@ class MessageViewSet(viewsets.ModelViewSet):
         return Response(self.get_serializer(ai_response).data, status=status.HTTP_201_CREATED)
 
 
-# --- Recommendation ViewSet ---
-class RecommendationViewSet(viewsets.ModelViewSet):
-    serializer_class = RecommendationSerializer
+# --- Crop Recommendation ViewSet ---
+
+class CropRecommendationViewSet(viewsets.ModelViewSet):
+    serializer_class = CropRecommendationSerializer
     permission_classes = [IsAuthenticated]
     filter_backends = [filters.OrderingFilter]
     ordering_fields = ['created_at']
 
     def get_queryset(self):
-        return Recommendation.objects.filter(user=self.request.user)
+        return CropRecommendation.objects.filter(user=self.request.user)
 
     @extend_schema(
-        description='Generate recommendation based on inputs (mocked)',
-        responses={200: RecommendationSerializer}
+        description='Generate a crop recommendation based on input data.',
+        responses={200: CropRecommendationSerializer}
     )
     @action(detail=False, methods=['post'])
     def generate(self, request):
-        # Placeholder logic — in real implementation you'd use input data
-        # to create a recommendation dynamically based on models or heuristics
-        return Response({'status': 'Recommendation generation started (mock)'}, status=status.HTTP_202_ACCEPTED)
+        # Real logic goes here — this is just a placeholder
+        # e.g., image analysis or soil data processing
+        # For now, simulate creation
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        recommendation = serializer.save()
+        return Response(self.get_serializer(recommendation).data, status=status.HTTP_201_CREATED)
 
+# --- Fertilizer Recommendation ViewSet ---
+
+class FertilizerRecommendationViewSet(viewsets.ModelViewSet):
+    serializer_class = FertilizerRecommendationSerializer
+    permission_classes = [IsAuthenticated]
+    filter_backends = [filters.OrderingFilter]
+    ordering_fields = ['created_at']
+
+    def get_queryset(self):
+        return FertilizerRecommendation.objects.filter(user=self.request.user)
+
+    @extend_schema(
+        description='Generate a fertilizer recommendation based on input data.',
+        responses={200: FertilizerRecommendationSerializer}
+    )
+    @action(detail=False, methods=['post'])
+    def generate(self, request):
+        # Again, replace with real model/logic
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        recommendation = serializer.save()
+        return Response(self.get_serializer(recommendation).data, status=status.HTTP_201_CREATED)
 
 class MLModelViewSet(viewsets.ViewSet):
     permission_classes = [IsAuthenticated]
